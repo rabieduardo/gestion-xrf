@@ -46,6 +46,9 @@ button[type="submit"]:hover { background-color: var(--primary-dark); }
 .btn-eliminar { background-color: #ff4d4d; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: background 0.2s; }
 .btn-eliminar:hover { background-color: #cc0000; }
 
+.btn-accion-xrf { background-color: var(--primary-color); color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: background 0.2s; white-space: nowrap; height: 45px; }
+.btn-accion-xrf:hover { background-color: var(--primary-dark); }
+
 .muestra-item { background: white; padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 15px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; position: relative; overflow: hidden; }
 .muestra-item::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; }
 
@@ -64,7 +67,7 @@ button[type="submit"]:hover { background-color: var(--primary-dark); }
 .fecha { font-size: 12px; color: var(--text-light); }
 .card-body { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; color: var(--text-light); }
 .card-body strong { color: var(--text-color); }
-.card-footer { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 5px; }
+.card-footer { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: flex-end; border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 5px; }
 .editable-input { padding: 6px; font-size: 13px; width: 100px; display: inline-block; }
 </style>
 </head>
@@ -74,8 +77,8 @@ button[type="submit"]:hover { background-color: var(--primary-dark); }
 
   <!-- Selector de Rol -->
   <div class="role-selector">
-    <button class="role-btn active" onclick="cambiarRol('compras')">Vista: Agente de Compras</button>
-    <button class="role-btn" onclick="cambiarRol('xrf')">Vista: Analista XRF</button>
+    <button class="role-btn active" id="btn-compras" onclick="cambiarRol('compras')">Vista: Agente de Compras</button>
+    <button class="role-btn" id="btn-xrf" onclick="cambiarRol('xrf')">Vista: Analista XRF</button>
   </div>
 
   <!-- SECCIÓN COMPRAS -->
@@ -90,12 +93,14 @@ button[type="submit"]:hover { background-color: var(--primary-dark); }
 
       <div class="form-group">
         <label for="agente">Agente de Compras:</label>
-        <input type="text" id="agente" placeholder="Escribe tu primer nombre y primer apellido" required>
+        <input type="text" id="agente" list="lista-agentes" placeholder="Escribe tu primer nombre y primer apellido" required>
+        <datalist id="lista-agentes"></datalist>
       </div>
 
       <div class="form-group">
         <label for="tipo">Tipo de Cerámica:</label>
-        <input type="text" id="tipo" placeholder="Ej. Gasolina, Diesel, etc." required>
+        <input type="text" id="tipo" list="lista-tipos" placeholder="Ej. Gasolina, Diesel, etc." required>
+        <datalist id="lista-tipos"></datalist>
       </div>
 
       <div class="form-group">
@@ -134,16 +139,24 @@ const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwAP2xmHiKv5EoJpC7I
 
 let muestras = JSON.parse(localStorage.getItem('muestras_xrf')) || [];
 let proveedoresGuardados = JSON.parse(localStorage.getItem('proveedores_xrf')) || [];
+let agentesGuardados = JSON.parse(localStorage.getItem('agentes_xrf')) || [];
+let tiposGuardados = JSON.parse(localStorage.getItem('tipos_xrf')) || [];
+
 let rolActual = 'compras';
 
-actualizarDatalistProveedores();
+actualizarListasMemoria();
 actualizarLista();
 
 function cambiarRol(rol) {
   rolActual = rol;
   document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
-  event.target.classList.add('active');
-  document.getElementById('seccion-compras').style.display = (rol === 'compras') ? 'block' : 'none';
+  if (rol === 'compras') {
+    document.getElementById('btn-compras').classList.add('active');
+    document.getElementById('seccion-compras').style.display = 'block';
+  } else {
+    document.getElementById('btn-xrf').classList.add('active');
+    document.getElementById('seccion-compras').style.display = 'none';
+  }
   actualizarLista();
 }
 
@@ -159,13 +172,29 @@ function togglePesoInicial(checkbox) {
   }
 }
 
-function actualizarDatalistProveedores() {
-  const datalist = document.getElementById('lista-proveedores');
-  datalist.innerHTML = '';
+function actualizarListasMemoria() {
+  const datalistProv = document.getElementById('lista-proveedores');
+  datalistProv.innerHTML = '';
   proveedoresGuardados.forEach(p => {
     const option = document.createElement('option');
     option.value = p;
-    datalist.appendChild(option);
+    datalistProv.appendChild(option);
+  });
+
+  const datalistAgentes = document.getElementById('lista-agentes');
+  datalistAgentes.innerHTML = '';
+  agentesGuardados.forEach(a => {
+    const option = document.createElement('option');
+    option.value = a;
+    datalistAgentes.appendChild(option);
+  });
+
+  const datalistTipos = document.getElementById('lista-tipos');
+  datalistTipos.innerHTML = '';
+  tiposGuardados.forEach(t => {
+    const option = document.createElement('option');
+    option.value = t;
+    datalistTipos.appendChild(option);
   });
 }
 
@@ -196,8 +225,16 @@ document.getElementById('form-compras').addEventListener('submit', function(e) {
   if (!proveedoresGuardados.includes(proveedor)) {
     proveedoresGuardados.push(proveedor);
     localStorage.setItem('proveedores_xrf', JSON.stringify(proveedoresGuardados));
-    actualizarDatalistProveedores();
   }
+  if (!agentesGuardados.includes(agente)) {
+    agentesGuardados.push(agente);
+    localStorage.setItem('agentes_xrf', JSON.stringify(agentesGuardados));
+  }
+  if (!tiposGuardados.includes(tipo)) {
+    tiposGuardados.push(tipo);
+    localStorage.setItem('tipos_xrf', JSON.stringify(tiposGuardados));
+  }
+  actualizarListasMemoria();
 
   const nuevaMuestra = {
     codigo,
@@ -212,7 +249,7 @@ document.getElementById('form-compras').addEventListener('submit', function(e) {
     fechaAnalisis: '',
     notasAgente,
     notasXrf: '',
-    pesoFinal: sinPeso ? 'Pendiente' : pesoInicial
+    pesoFinal: 'Pendiente'
   };
 
   muestras.push(nuevaMuestra);
@@ -261,11 +298,12 @@ function actualizarLista() {
 
     let controlesXrf = '';
     if (rolActual === 'xrf') {
+      const pesoFinalActual = (m.pesoFinal === 'Pendiente' || m.pesoFinal === undefined) ? '' : m.pesoFinal;
       controlesXrf = `
         <div class="card-footer">
           <div>
             <label>Estatus XRF:</label>
-            <select onchange="actualizarEstatus('${m.codigo}', this.value)">
+            <select id="estatus-${m.codigo}">
               <option value="Ingresado y esperando" ${m.estatusAnalisis === 'Ingresado y esperando' ? 'selected' : ''}>⏳ Ingresado y esperando</option>
               <option value="Moliendo" ${m.estatusAnalisis === 'Moliendo' ? 'selected' : ''}>⚙️ Moliendo</option>
               <option value="Analizando" ${m.estatusAnalisis === 'Analizando' ? 'selected' : ''}>🔬 Analizando</option>
@@ -274,15 +312,29 @@ function actualizarLista() {
           </div>
           <div>
             <label>Peso Final / Neto (kg):</label>
-            <input type="text" value="${m.pesoFinal}" onchange="actualizarPesoFinal('${m.codigo}', this.value)">
+            <input type="number" step="0.01" id="pesofinal-${m.codigo}" value="${pesoFinalActual}" placeholder="Ej. 11.8">
+          </div>
+          <div>
+            <button class="btn-accion-xrf" onclick="actualizarPeso('${m.codigo}')">Actualizar peso</button>
           </div>
         </div>
-        <div style="margin-top:10px;">
-          <label>Notas XRF:</label>
-          <input type="text" value="${m.notasXrf}" placeholder="Escribe notas del análisis..." onchange="actualizarNotasXrf('${m.codigo}', this.value)">
+        <div style="margin-top:12px; display:flex; gap:10px; align-items:flex-end; border-top:1px dashed var(--border-color); padding-top:10px;">
+          <div style="flex-grow:1;">
+            <label>Notas XRF:</label>
+            <input type="text" id="notasxrf-${m.codigo}" value="${m.notasXrf || ''}" placeholder="Escribe notas del análisis...">
+          </div>
+          <div>
+            <button class="btn-accion-xrf" onclick="ingresarNota('${m.codigo}')">Ingresar nota</button>
+          </div>
         </div>
       `;
     }
+
+    const pesoInicialHtml = m.pesoInicial === 'Pendiente' 
+      ? `<span style="color:var(--danger-color);">Pendiente</span> <input type="number" step="0.01" class="editable-input" placeholder="Peso kg" onchange="actualizarPesoInicial('${m.codigo}', this.value)">` 
+      : `${m.pesoInicial} kg`;
+
+    const pesoFinalDisplay = (m.pesoFinal === 'Pendiente' || m.pesoFinal === '') ? '<span style="color:var(--danger-color);">Pendiente</span>' : `${m.pesoFinal} kg`;
 
     div.innerHTML = `
       <div class="card-header">
@@ -299,16 +351,14 @@ function actualizarLista() {
           <strong>Proveedor:</strong> ${m.proveedor}<br>
           <strong>Agente:</strong> ${m.agente}<br>
           <strong>Tipo:</strong> ${m.tipo}<br>
-          <strong>Peso Inicial:</strong> 
-          ${m.pesoInicial === 'Pendiente' ? 
-            `<span style="color:var(--danger-color);">Pendiente</span> <input type="number" step="0.01" class="editable-input" placeholder="Peso kg" onchange="actualizarPesoInicial('\${m.codigo}', this.value)">` 
-            : `\${m.pesoInicial} kg`}
+          <strong>Peso Inicial:</strong> ${pesoInicialHtml}
         </div>
         <div>
           <strong>Tipo Análisis:</strong> ${m.tipoAnalisis}<br>
           <strong>Estatus:</strong> <span style="font-weight:bold;">${iconoEstatus} ${m.estatusAnalisis}</span><br>
-          <strong>Peso Final:</strong> ${m.pesoFinal} kg<br>
-          <strong>Notas Agente:</strong> ${m.notasAgente || 'Ninguna'}
+          <strong>Peso Final:</strong> ${pesoFinalDisplay}<br>
+          <strong>Notas Agente:</strong> ${m.notasAgente || 'Ninguna'}<br>
+          <strong>Notas XRF:</strong> ${m.notasXrf || 'Ninguna'}
         </div>
       </div>
       ${controlesXrf}
@@ -317,36 +367,43 @@ function actualizarLista() {
   });
 }
 
+function actualizarPeso(codigo) {
+  const m = muestras.find(item => item.codigo === codigo);
+  if (m) {
+    const inputPeso = document.getElementById(`pesofinal-${codigo}`).value;
+    let selectEstatus = document.getElementById(`estatus-${codigo}`).value;
+
+    if (inputPeso !== '') {
+      m.pesoFinal = parseFloat(inputPeso);
+      if (selectEstatus === 'Ingresado y esperando') {
+        selectEstatus = 'Terminado';
+      }
+    } else {
+      m.pesoFinal = 'Pendiente';
+    }
+
+    m.estatusAnalisis = selectEstatus;
+    m.fechaAnalisis = new Date().toLocaleString();
+
+    guardarYRenderizar();
+    alert(`Peso actualizado para la muestra ${codigo}`);
+  }
+}
+
+function ingresarNota(codigo) {
+  const m = muestras.find(item => item.codigo === codigo);
+  if (m) {
+    const inputNotas = document.getElementById(`notasxrf-${codigo}`).value;
+    m.notasXrf = inputNotas;
+    guardarYRenderizar();
+    alert(`Nota ingresada para la muestra ${codigo}`);
+  }
+}
+
 function actualizarPesoInicial(codigo, nuevoPeso) {
   const m = muestras.find(item => item.codigo === codigo);
   if (m) {
     m.pesoInicial = parseFloat(nuevoPeso) || 0;
-    if (m.pesoFinal === 'Pendiente') m.pesoFinal = m.pesoInicial;
-    guardarYRenderizar();
-  }
-}
-
-function actualizarEstatus(codigo, nuevoEstatus) {
-  const m = muestras.find(item => item.codigo === codigo);
-  if (m) {
-    m.estatusAnalisis = nuevoEstatus;
-    m.fechaAnalisis = new Date().toLocaleString();
-    guardarYRenderizar();
-  }
-}
-
-function actualizarPesoFinal(codigo, nuevoPeso) {
-  const m = muestras.find(item => item.codigo === codigo);
-  if (m) {
-    m.pesoFinal = isNaN(nuevoPeso) ? nuevoPeso : parseFloat(nuevoPeso);
-    guardarYRenderizar();
-  }
-}
-
-function actualizarNotasXrf(codigo, notas) {
-  const m = muestras.find(item => item.codigo === codigo);
-  if (m) {
-    m.notasXrf = notas;
     guardarYRenderizar();
   }
 }
