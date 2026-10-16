@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Gestión XRF</title>
+<style>
+:root {
+  --primary-color: #0066cc;
+  --primary-light: #e6f2ff;
+  --primary-dark: #004080;
+  --secondary-color: #f8f9fa;
+  --border-color: #d1e0f0;
+  --text-color: #333333;
+  --text-light: #666666;
+  --success-color: #28a745;
+  --warning-color: #ffcc00;
+  --danger-color: #cc0000;
+  --radius: 12px;
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+* { box-sizing: border-box; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8; color: var(--text-color); margin: 0; padding: 20px; }
+.container { max-width: 900px; margin: auto; }
+
+h1 { color: var(--primary-dark); font-size: 28px; margin-bottom: 25px; text-align: center; font-weight: 600; }
+h2 { color: var(--primary-dark); font-size: 20px; margin-bottom: 15px; border-bottom: 2px solid var(--primary-light); padding-bottom: 8px; }
+
+.role-selector { display: flex; justify-content: center; gap: 15px; margin-bottom: 25px; }
+.role-btn { padding: 10px 20px; border: 2px solid var(--primary-color); background: white; color: var(--primary-color); font-weight: 600; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+.role-btn.active { background: var(--primary-color); color: white; }
+
+form, .vista-panel { background: white; padding: 25px; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 30px; border: 1px solid var(--border-color); }
+.form-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px; color: var(--text-color); }
+input, select, textarea { width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; background-color: var(--secondary-color); transition: border-color 0.2s; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px var(--primary-light); }
+
+.checkbox-container { display: flex; align-items: center; gap: 8px; margin-top: 5px; font-size: 13px; color: var(--text-light); }
+.checkbox-container input { width: auto; }
+
+button[type="submit"] { background-color: var(--primary-color); color: white; border: none; cursor: pointer; font-size: 16px; font-weight: 600; margin-top: 10px; padding: 12px; border-radius: 8px; width: 100%; transition: background-color 0.2s; }
+button[type="submit"]:hover { background-color: var(--primary-dark); }
+
+.btn-eliminar { background-color: #ff4d4d; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: background 0.2s; }
+.btn-eliminar:hover { background-color: #cc0000; }
+
+.muestra-item { background: white; padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 15px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; position: relative; overflow: hidden; }
+.muestra-item::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; }
+
+/* Estados de color */
+.muestra-item.estado-esperando::after { background-color: #6c757d; }
+.muestra-item.estado-moliendo::after { background-color: #ff9900; }
+.muestra-item.estado-analizando::after { background-color: #0066cc; }
+.muestra-item.estado-terminado::after { background-color: #28a745; }
+
+/* Alertas por tiempo */
+.muestra-item.alerta-amarilla { border: 2px solid #ffcc00; background-color: #fffde6 !important; }
+.muestra-item.alerta-roja { border: 2px solid #cc0000; background-color: #ffe6e6 !important; }
+
+.card-header { display: flex; justify-content: space-between; align-items: center; }
+.codigo { font-family: monospace; font-size: 14px; font-weight: 600; color: var(--primary-color); background-color: var(--primary-light); padding: 4px 8px; border-radius: 6px; }
+.fecha { font-size: 12px; color: var(--text-light); }
+.card-body { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; color: var(--text-light); }
+.card-body strong { color: var(--text-color); }
+.card-footer { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 5px; }
+.editable-input { padding: 6px; font-size: 13px; width: 100px; display: inline-block; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Sistema de Gestión XRF</h1>
+
+  <!-- Selector de Rol -->
+  <div class="role-selector">
+    <button class="role-btn active" onclick="cambiarRol('compras')">Vista: Agente de Compras</button>
+    <button class="role-btn" onclick="cambiarRol('xrf')">Vista: Analista XRF</button>
+  </div>
+
+  <!-- SECCIÓN COMPRAS -->
+  <div id="seccion-compras">
+    <h2>Registrar Nueva Muestra</h2>
+    <form id="form-compras">
+      <div class="form-group">
+        <label for="proveedor">Proveedor:</label>
+        <input type="text" id="proveedor" list="lista-proveedores" placeholder="Escribe o selecciona proveedor..." required>
+        <datalist id="lista-proveedores"></datalist>
+      </div>
+
+      <div class="form-group">
+        <label for="agente">Agente de Compras:</label>
+        <input type="text" id="agente" placeholder="Escribe tu primer nombre y primer apellido" required>
+      </div>
+
+      <div class="form-group">
+        <label for="tipo">Tipo de Cerámica:</label>
+        <input type="text" id="tipo" placeholder="Ej. Gasolina, Diesel, etc." required>
+      </div>
+
+      <div class="form-group">
+        <label for="peso-inicial">Peso Inicial (kg):</label>
+        <input type="number" step="0.01" id="peso-inicial" placeholder="Ej. 12.5" required>
+        <div class="checkbox-container">
+          <input type="checkbox" id="sin-peso" onchange="togglePesoInicial(this)">
+          <label for="sin-peso" style="margin-bottom:0; display:inline; font-weight:normal;">No se pudo pesar / Ingresar después</label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="tipo-analisis">Tipo de Análisis:</label>
+        <select id="tipo-analisis">
+          <option value="Normal">Normal</option>
+          <option value="Urgente">Urgente</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="notas-agente">Notas del Agente:</label>
+        <textarea id="notas-agente" rows="2" placeholder="Observaciones de compra..."></textarea>
+      </div>
+
+      <button type="submit">Generar y Registrar Muestra</button>
+    </form>
+  </div>
+
+  <!-- LISTA DE MUESTRAS -->
+  <h2>Lista General de Muestras</h2>
+  <div id="lista-muestras"></div>
+</div>
+
+<script>
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwAP2xmHiKv5EoJpC7I8P-tUz1SuyWUSSxGtpFccLA1XvcECxZsMX7nhvsIbYYoAMYR/exec";
+
+let muestras = JSON.parse(localStorage.getItem('muestras_xrf')) || [];
+let proveedoresGuardados = JSON.parse(localStorage.getItem('proveedores_xrf')) || [];
+let rolActual = 'compras';
+
+actualizarDatalistProveedores();
+actualizarLista();
+
+function cambiarRol(rol) {
+  rolActual = rol;
+  document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('seccion-compras').style.display = (rol === 'compras') ? 'block' : 'none';
+  actualizarLista();
+}
+
+function togglePesoInicial(checkbox) {
+  const inputPeso = document.getElementById('peso-inicial');
+  if (checkbox.checked) {
+    inputPeso.value = '';
+    inputPeso.disabled = true;
+    inputPeso.required = false;
+  } else {
+    inputPeso.disabled = false;
+    inputPeso.required = true;
+  }
+}
+
+function actualizarDatalistProveedores() {
+  const datalist = document.getElementById('lista-proveedores');
+  datalist.innerHTML = '';
+  proveedoresGuardados.forEach(p => {
+    const option = document.createElement('option');
+    option.value = p;
+    datalist.appendChild(option);
+  });
+}
+
+function generarCodigo(nombreAgente) {
+  const partes = nombreAgente.trim().split(/\s+/);
+  const iniciales = (partes[0] ? partes[0][0] : 'X') + (partes[1] ? partes[1][0] : 'X');
+  const inicialesUpper = iniciales.toUpperCase();
+  const filtradas = muestras.filter(m => m.codigo.startsWith(inicialesUpper));
+  const consecutivo = String(filtradas.length + 1).padStart(3, '0');
+  return `${inicialesUpper}-${consecutivo}`;
+}
+
+document.getElementById('form-compras').addEventListener('submit', function(e) {
+  e.preventDefault();
+
+  const proveedor = document.getElementById('proveedor').value.trim().toUpperCase();
+  const agente = document.getElementById('agente').value.trim();
+  const tipo = document.getElementById('tipo').value.trim();
+  const sinPeso = document.getElementById('sin-peso').checked;
+  const pesoInicial = sinPeso ? 'Pendiente' : parseFloat(document.getElementById('peso-inicial').value);
+  const tipoAnalisis = document.getElementById('tipo-analisis').value;
+  const notasAgente = document.getElementById('notas-agente').value;
+  
+  const codigo = generarCodigo(agente);
+  const fechaIngreso = new Date().toLocaleString();
+  const fechaIso = new Date().toISOString();
+
+  if (!proveedoresGuardados.includes(proveedor)) {
+    proveedoresGuardados.push(proveedor);
+    localStorage.setItem('proveedores_xrf', JSON.stringify(proveedoresGuardados));
+    actualizarDatalistProveedores();
+  }
+
+  const nuevaMuestra = {
+    codigo,
+    proveedor,
+    agente,
+    tipo,
+    pesoInicial,
+    fechaIngreso,
+    fechaIso,
+    estatusAnalisis: 'Ingresado y esperando',
+    tipoAnalisis,
+    fechaAnalisis: '',
+    notasAgente,
+    notasXrf: '',
+    pesoFinal: sinPeso ? 'Pendiente' : pesoInicial
+  };
+
+  muestras.push(nuevaMuestra);
+  guardarYRenderizar();
+  sincronizarConGoogle(nuevaMuestra);
+  this.reset();
+  document.getElementById('peso-inicial').disabled = false;
+  document.getElementById('peso-inicial').required = true;
+  alert(`Muestra registrada con éxito. Código asignado: ${codigo}`);
+});
+
+function actualizarLista() {
+  const contenedor = document.getElementById('lista-muestras');
+  contenedor.innerHTML = '';
+
+  if (muestras.length === 0) {
+    contenedor.innerHTML = '<p style="text-align:center; color:#666;">No hay muestras registradas.</p>';
+    return;
+  }
+
+  const muestrasOrdenadas = [...muestras].sort((a, b) => new Date(a.fechaIso) - new Date(b.fechaIso));
+
+  muestrasOrdenadas.forEach((m) => {
+    const div = document.createElement('div');
+    
+    let iconoEstatus = '⏳';
+    let claseEstado = 'estado-esperando';
+    if (m.estatusAnalisis === 'Moliendo') { iconoEstatus = '⚙️'; claseEstado = 'estado-moliendo'; }
+    else if (m.estatusAnalisis === 'Analizando') { iconoEstatus = '🔬'; claseEstado = 'estado-analizando'; }
+    else if (m.estatusAnalisis === 'Terminado') { iconoEstatus = '✅'; claseEstado = 'estado-terminado'; }
+
+    let alertaClase = '';
+    let etiquetaAlerta = '';
+    if (m.estatusAnalisis !== 'Terminado' && m.fechaIso) {
+      const diasTranscurridos = (new Date() - new Date(m.fechaIso)) / (1000 * 60 * 60 * 24);
+      if (diasTranscurridos > 7) {
+        alertaClase = 'alerta-roja';
+        etiquetaAlerta = ' 🚨 > 7 DÍAS';
+      } else if (diasTranscurridos > 3) {
+        alertaClase = 'alerta-amarilla';
+        etiquetaAlerta = ' ⚠️ > 3 DÍAS';
+      }
+    }
+
+    div.className = `muestra-item ${claseEstado} ${alertaClase}`;
+
+    let controlesXrf = '';
+    if (rolActual === 'xrf') {
+      controlesXrf = `
+        <div class="card-footer">
+          <div>
+            <label>Estatus XRF:</label>
+            <select onchange="actualizarEstatus('${m.codigo}', this.value)">
+              <option value="Ingresado y esperando" ${m.estatusAnalisis === 'Ingresado y esperando' ? 'selected' : ''}>⏳ Ingresado y esperando</option>
+              <option value="Moliendo" ${m.estatusAnalisis === 'Moliendo' ? 'selected' : ''}>⚙️ Moliendo</option>
+              <option value="Analizando" ${m.estatusAnalisis === 'Analizando' ? 'selected' : ''}>🔬 Analizando</option>
+              <option value="Terminado" ${m.estatusAnalisis === 'Terminado' ? 'selected' : ''}>✅ Terminado</option>
+            </select>
+          </div>
+          <div>
+            <label>Peso Final / Neto (kg):</label>
+            <input type="text" value="${m.pesoFinal}" onchange="actualizarPesoFinal('${m.codigo}', this.value)">
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <label>Notas XRF:</label>
+          <input type="text" value="${m.notasXrf}" placeholder="Escribe notas del análisis..." onchange="actualizarNotasXrf('${m.codigo}', this.value)">
+        </div>
+      `;
+    }
+
+    div.innerHTML = `
+      <div class="card-header">
+        <div>
+          <span class="codigo">${m.codigo}${etiquetaAlerta}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <span class="fecha">Ingreso: ${m.fechaIngreso}</span>
+          <button class="btn-eliminar" onclick="eliminarMuestra('${m.codigo}')">Borrar</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div>
+          <strong>Proveedor:</strong> ${m.proveedor}<br>
+          <strong>Agente:</strong> ${m.agente}<br>
+          <strong>Tipo:</strong> ${m.tipo}<br>
+          <strong>Peso Inicial:</strong> 
+          ${m.pesoInicial === 'Pendiente' ? 
+            `<span style="color:var(--danger-color);">Pendiente</span> <input type="number" step="0.01" class="editable-input" placeholder="Peso kg" onchange="actualizarPesoInicial('\${m.codigo}', this.value)">` 
+            : `\${m.pesoInicial} kg`}
+        </div>
+        <div>
+          <strong>Tipo Análisis:</strong> ${m.tipoAnalisis}<br>
+          <strong>Estatus:</strong> <span style="font-weight:bold;">${iconoEstatus} ${m.estatusAnalisis}</span><br>
+          <strong>Peso Final:</strong> ${m.pesoFinal} kg<br>
+          <strong>Notas Agente:</strong> ${m.notasAgente || 'Ninguna'}
+        </div>
+      </div>
+      ${controlesXrf}
+    `;
+    contenedor.appendChild(div);
+  });
+}
+
+function actualizarPesoInicial(codigo, nuevoPeso) {
+  const m = muestras.find(item => item.codigo === codigo);
+  if (m) {
+    m.pesoInicial = parseFloat(nuevoPeso) || 0;
+    if (m.pesoFinal === 'Pendiente') m.pesoFinal = m.pesoInicial;
+    guardarYRenderizar();
+  }
+}
+
+function actualizarEstatus(codigo, nuevoEstatus) {
+  const m = muestras.find(item => item.codigo === codigo);
+  if (m) {
+    m.estatusAnalisis = nuevoEstatus;
+    m.fechaAnalisis = new Date().toLocaleString();
+    guardarYRenderizar();
+  }
+}
+
+function actualizarPesoFinal(codigo, nuevoPeso) {
+  const m = muestras.find(item => item.codigo === codigo);
+  if (m) {
+    m.pesoFinal = isNaN(nuevoPeso) ? nuevoPeso : parseFloat(nuevoPeso);
+    guardarYRenderizar();
+  }
+}
+
+function actualizarNotasXrf(codigo, notas) {
+  const m = muestras.find(item => item.codigo === codigo);
+  if (m) {
+    m.notasXrf = notas;
+    guardarYRenderizar();
+  }
+}
+
+function eliminarMuestra(codigo) {
+  if (confirm(`¿Estás seguro de que deseas eliminar la muestra ${codigo}?`)) {
+    muestras = muestras.filter(item => item.codigo !== codigo);
+    guardarYRenderizar();
+  }
+}
+
+function guardarYRenderizar() {
+  localStorage.setItem('muestras_xrf', JSON.stringify(muestras));
+  actualizarLista();
+}
+
+function sincronizarConGoogle(data) {
+  fetch(WEB_APP_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).catch(err => console.error("Error sincronizando:", err));
+}
+</script>
+</body>
+</html>
